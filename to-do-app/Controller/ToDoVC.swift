@@ -22,6 +22,8 @@ class ToDoVC: UIViewController, UITableViewDelegate, UITableViewDataSource {
     // MARK: Data handling
     
     var list: [NSManagedObject] = []
+    var relevantList: [Task] = []
+    
     let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
 
     
@@ -42,9 +44,7 @@ class ToDoVC: UIViewController, UITableViewDelegate, UITableViewDataSource {
     
     override func viewWillAppear(_ animated: Bool) {
         getTasks()
-        for task in list {
-//            print(task.value(forKey: "taskTitle")!)
-        }
+        presentOnlyRelevant()
     }
     
     func setTitle() {
@@ -73,14 +73,15 @@ class ToDoVC: UIViewController, UITableViewDelegate, UITableViewDataSource {
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return list.count
+        return relevantList.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         if let cell = checklistTable.dequeueReusableCell(withIdentifier: "DataCell", for: indexPath) as? toDoCell {
-            if list.count > 0 {
-                cell.task = (list[indexPath.row] as! Task)
+            if relevantList.count > 0 {
+                cell.task = relevantList[indexPath.row]
                 cell.taskLabel.text = cell.task?.taskTitle
+                cell.deadlineLabel.text = cell.task?.deadline
                 if let img = cell.task?.state {
                     cell.checkmarkImage.image = UIImage(named: "\(TaskState(rawValue: img)!)")
                 }
@@ -94,8 +95,13 @@ class ToDoVC: UIViewController, UITableViewDelegate, UITableViewDataSource {
         if let cell = checklistTable.cellForRow(at: indexPath) as? toDoCell {
             if let task = cell.task {
                 if let state = TaskState(rawValue: task.state) {
-                    list[indexPath.row].setValue(cell.changeMark(state: state).rawValue, forKey: "state")
-                    // need to save to db
+                    var indexToChange = -1
+                     for (index, item) in list.enumerated() {
+                         if item == relevantList[indexPath.row] {
+                             indexToChange = index
+                         }
+                     }
+                    list[indexToChange].setValue(cell.changeMark(state: state).rawValue, forKey: "state")
                     save()
                 }
             }
@@ -108,7 +114,7 @@ class ToDoVC: UIViewController, UITableViewDelegate, UITableViewDataSource {
             if indexPath.section == 0 {
             return UITableView.automaticDimension
         } else {
-            return 40
+            return 65
         }
     }
     
@@ -116,14 +122,21 @@ class ToDoVC: UIViewController, UITableViewDelegate, UITableViewDataSource {
            if indexPath.section == 0 {
              return UITableView.automaticDimension
          } else {
-             return 40
+             return 65
          }
     }
     
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
-            context.delete(list[indexPath.row])
-            list.remove(at: indexPath.row)
+            var indexToDelete = -1
+            for (index, item) in list.enumerated() {
+                if item == relevantList[indexPath.row] {
+                    indexToDelete = index
+                }
+            }
+            relevantList.remove(at: indexPath.row)
+            context.delete(list[indexToDelete])
+            list.remove(at: indexToDelete)
             checklistTable.deleteRows(at: [indexPath], with: .fade)
             save()
         }
@@ -169,11 +182,13 @@ class ToDoVC: UIViewController, UITableViewDelegate, UITableViewDataSource {
         // 3
         task.setValue(title, forKey: "taskTitle")
         task.setValue(state.rawValue, forKey: "state")
+        task.setValue(getDeadline(), forKey: "deadline")
         
         // 4
         save()
     
         // 5 Update Table
+        relevantList.insert((task as? Task)!, at: 0)
         list.insert(task, at: 0)
         let indexPath = IndexPath(row: 0, section: 0)
         self.checklistTable.insertRows(at: [indexPath], with: .automatic)
@@ -205,6 +220,42 @@ class ToDoVC: UIViewController, UITableViewDelegate, UITableViewDataSource {
             try context.save()
         } catch let error as NSError {
             print("Could not save. \(error), \(error.userInfo)")
+        }
+    }
+    
+    func getDeadline() -> String? {
+        let date = Date()
+        let format = DateFormatter()
+        switch destinationType {
+        case .daily:
+            format.dateFormat = "dd-MM-yyyy"
+            let formattedDate = format.string(from: date)
+            title =  "The end of \(formattedDate)"
+            return "\(formattedDate) 23:59"
+        case .monthly:
+            format.dateFormat = "LLLL yyyy"
+            let formattedDate = format.string(from: date)
+            return "End of \(formattedDate) 23:59"
+        case .yearly:
+            format.dateFormat = "yyyy"
+            let formattedDate = format.string(from: date)
+            return "31st December \(formattedDate) 23:59"
+        case .halfYear:
+            format.dateFormat = "yyyy"
+            let formattedDate = format.string(from: date)
+            return "30th June \(formattedDate) 23:59"
+        case .none:
+            return nil
+        }
+    }
+    
+    func presentOnlyRelevant() {
+        for item in list {
+            if let task = item as? Task {
+                if task.deadline == getDeadline() {
+                    relevantList.append(task)
+                }
+            }
         }
     }
 

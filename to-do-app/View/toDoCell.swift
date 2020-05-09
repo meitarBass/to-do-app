@@ -12,6 +12,7 @@ class toDoCell: UITableViewCell {
 
     @IBOutlet weak var checkmarkImage: UIImageView!
     @IBOutlet weak var taskLabel: UILabel!
+    @IBOutlet weak var deadlineLabel: UILabel!
     
     var task: Task?
     
