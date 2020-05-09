@@ -20,19 +20,17 @@ class toDoCell: UITableViewCell {
         // Initialization code
     }
     
-    func changeMark() {
-        if let state = task?.state {
-            switch state {
-            case .Empty:
-                self.task!.state = .V
-                checkmarkImage.image = UIImage(named: "V")
-            case .V:
-                self.task!.state = .X
-                checkmarkImage.image = UIImage(named: "X")
-            case .X:
-                self.task!.state = .Empty
-                checkmarkImage.image = UIImage(named: "Empty")
-            }
+    func changeMark(state: TaskState) -> TaskState {
+        switch state {
+        case .Empty:
+            checkmarkImage.image = UIImage(named: "V")
+            return .V
+        case .V:
+            checkmarkImage.image = UIImage(named: "X")
+            return .X
+        case .X:
+            checkmarkImage.image = UIImage(named: "Empty")
+            return .Empty
         }
     }
 }
